@@ -14,6 +14,16 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Password protection middleware
+const checkPassword = (req, res, next) => {
+  const password = req.headers['x-access-password'] || req.query.password;
+
+  if (password !== process.env.ACCESS_PASSWORD) {
+    return res.status(401).json({ error: 'Invalid password' });
+  }
+  next();
+};
+
 // Initialize Backblaze B2 (S3-compatible)
 const s3Client = new S3Client({
   endpoint: `https://${process.env.B2_ENDPOINT}`,
@@ -31,7 +41,7 @@ const supabase = createClient(
 );
 
 // Generate presigned URL for upload
-app.post('/api/upload-url', async (req, res) => {
+app.post('/api/upload-url', checkPassword, async (req, res) => {
   try {
     const { filename, contentType } = req.body;
 
@@ -58,7 +68,7 @@ app.post('/api/upload-url', async (req, res) => {
 });
 
 // Save video metadata to Supabase
-app.post('/api/videos', async (req, res) => {
+app.post('/api/videos', checkPassword, async (req, res) => {
   try {
     const { filename, original_name, file_size, description, event_name } = req.body;
 
@@ -110,7 +120,7 @@ app.get('/api/videos', async (req, res) => {
 });
 
 // Generate presigned URL for download
-app.get('/api/download-url/:filename', async (req, res) => {
+app.get('/api/download-url/:filename', checkPassword, async (req, res) => {
   try {
     const { filename } = req.params;
 
